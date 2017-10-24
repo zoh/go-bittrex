@@ -3,9 +3,11 @@ package bittrex
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"time"
 
 	"github.com/thebotguys/signalr"
+	"fmt"
 )
 
 type OrderUpdate struct {
@@ -27,6 +29,11 @@ type ExchangeState struct {
 	Sells      []OrderUpdate
 	Fills      []Fill
 	Initial    bool
+}
+
+type ExchangeSummaryState struct {
+	Deltas []MarketSummary
+	Nounce int
 }
 
 // doAsyncTimeout runs f in a different goroutine
@@ -74,23 +81,51 @@ func parseStates(messages []json.RawMessage, dataCh chan<- ExchangeState, market
 			continue
 		}
 		if st.MarketName != market {
+			log.Fatal("Что за ошибка?", st.MarketName)
 			continue
 		}
 		sendStateAsync(dataCh, st)
 	}
 }
 
+func parseSummaryState(messages []json.RawMessage, dataCh chan<- ExchangeSummaryState) {
+	for _, msg := range messages {
+		var st ExchangeSummaryState
+		if err := json.Unmarshal(msg, &st); err != nil {
+			log.Println(err)
+			continue
+		}
+		select {
+		case dataCh <- st:
+		default:
+		}
+	}
+}
+
 // SubscribeExchangeUpdate subscribes for updates of the market.
 // Updates will be sent to dataCh.
 // To stop subscription, send to, or close 'stop'.
-func (b *Bittrex) SubscribeExchangeUpdate(market string, dataCh chan<- ExchangeState, stop <-chan bool) error {
+func (b *Bittrex) SubscribeExchangeUpdate(
+	market string,
+	dataCh chan<- ExchangeState,
+	dataSumCh chan<- ExchangeSummaryState,
+	stop <-chan bool,
+) error {
 	const timeout = 5 * time.Second
 	client := signalr.NewWebsocketClient()
 	client.OnClientMethod = func(hub string, method string, messages []json.RawMessage) {
-		if hub != WS_HUB || method != "updateExchangeState" {
+		fmt.Println(method, hub)
+		if hub != WS_HUB {
 			return
 		}
-		parseStates(messages, dataCh, market)
+
+		switch method {
+		case "updateExchangeState":
+			parseStates(messages, dataCh, market)
+
+		case "updateSummaryState":
+			parseSummaryState(messages, dataSumCh)
+		}
 	}
 	err := doAsyncTimeout(func() error {
 		return client.Connect("https", WS_BASE, []string{WS_HUB})

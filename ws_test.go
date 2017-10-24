@@ -1,40 +1,43 @@
 package bittrex
 
 import (
-	"errors"
 	"testing"
 	"time"
+	"fmt"
+	"log"
 )
 
 func TestBittrexSubscribeOrderBook(t *testing.T) {
 	bt := New("", "")
 	ch := make(chan ExchangeState, 16)
+	ch2 := make(chan ExchangeSummaryState, 16)
 	errCh := make(chan error)
+
 	go func() {
-		var haveInit bool
-		var msgNum int
-		for st := range ch {
-			haveInit = haveInit || st.Initial
-			msgNum++
-			if msgNum >= 3 {
-				break
+
+		for {
+			var data interface{}
+			select {
+			case data = <-ch:
+			case data = <-ch2:
 			}
+
+			fmt.Println(data)
 		}
-		if haveInit {
-			errCh <- nil
-		} else {
-			errCh <- errors.New("no initial message")
-		}
+
 	}()
 	go func() {
-		errCh <- bt.SubscribeExchangeUpdate("USDT-BTC", ch, nil)
+		errCh <- bt.SubscribeExchangeUpdate("USDT-BTC", ch, ch2, nil)
 	}()
+
 	select {
-	case <-time.After(time.Second * 6):
-		t.Error("timeout")
+	case <-time.After(time.Second * 60):
+		log.Print("timeout")
 	case err := <-errCh:
 		if err != nil {
-			t.Error(err)
+			log.Print(err)
 		}
 	}
+
+	println("End!")
 }
