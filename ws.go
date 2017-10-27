@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/thebotguys/signalr"
-	"fmt"
 )
 
 type OrderUpdate struct {
@@ -114,11 +113,9 @@ func (b *Bittrex) SubscribeExchangeUpdate(
 	const timeout = 5 * time.Second
 	client := signalr.NewWebsocketClient()
 	client.OnClientMethod = func(hub string, method string, messages []json.RawMessage) {
-		fmt.Println(method, hub)
 		if hub != WS_HUB {
 			return
 		}
-
 		switch method {
 		case "updateExchangeState":
 			parseStates(messages, dataCh, market)
