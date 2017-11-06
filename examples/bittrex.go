@@ -1,8 +1,7 @@
 package main
 
 import (
-	"fmt"
-	"github.com/toorop/go-bittrex"
+	"github.com/zoh/go-bittrex"
 )
 
 const (
@@ -12,7 +11,12 @@ const (
 
 func main() {
 	// Bittrex client
-	bittrex := bittrex.New(API_KEY, API_SECRET)
+	b := bittrex.New(API_KEY, API_SECRET)
+	b.SetDebug(true)
+	//
+	//b.GetOrderHistory2("BTC-QTUM")
+	//
+	//fmt.Println("END")
 
 	// Get Candle ( OHLCV )
 	/*

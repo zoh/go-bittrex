@@ -58,36 +58,43 @@ func doAsyncTimeout(f func() error, tmFunc func(error), timeout time.Duration) e
 	}
 }
 
-func sendStateAsync(dataCh chan<- ExchangeState, st ExchangeState) {
+func sendStateAsync(dataCh chan<- ExchangeEvent, st ExchangeEvent) {
 	select {
 	case dataCh <- st:
 	default:
 	}
 }
 
-func subForMarket(client *signalr.Client, market string) (json.RawMessage, error) {
-	_, err := client.CallHub(WS_HUB, "SubscribeToExchangeDeltas", market)
-	if err != nil {
-		return json.RawMessage{}, err
+func subForMarket(client *signalr.Client, markets []string, initialQueryState string) (json.RawMessage, error) {
+	for _, m := range markets {
+		_, err := client.CallHub(WS_HUB, "SubscribeToExchangeDeltas", m)
+		if err != nil {
+			log.Println("Error:", err)
+		}
 	}
-	return client.CallHub(WS_HUB, "QueryExchangeState", market)
+
+	if initialQueryState != "" {
+		return client.CallHub(WS_HUB, "QueryExchangeState", initialQueryState)
+	} else {
+		return nil, nil
+	}
 }
 
-func parseStates(messages []json.RawMessage, dataCh chan<- ExchangeState, market string) {
+func parseStates(messages []json.RawMessage, dataCh chan<- ExchangeEvent) {
 	for _, msg := range messages {
 		var st ExchangeState
 		if err := json.Unmarshal(msg, &st); err != nil {
 			continue
 		}
-		if st.MarketName != market {
-			log.Fatal("Что за ошибка?", st.MarketName)
-			continue
-		}
-		sendStateAsync(dataCh, st)
+		sendStateAsync(dataCh, ExchangeEvent{
+			Method: UpdateExchangeState,
+			T:      time.Now(),
+			State:  st,
+		})
 	}
 }
 
-func parseSummaryState(messages []json.RawMessage, dataCh chan<- ExchangeSummaryState) {
+func parseSummaryState(messages []json.RawMessage, dataCh chan<- ExchangeEvent) {
 	for _, msg := range messages {
 		var st ExchangeSummaryState
 		if err := json.Unmarshal(msg, &st); err != nil {
@@ -95,19 +102,36 @@ func parseSummaryState(messages []json.RawMessage, dataCh chan<- ExchangeSummary
 			continue
 		}
 		select {
-		case dataCh <- st:
+		case dataCh <- ExchangeEvent{
+			Method:       UpdateSummaryState,
+			T:            time.Now(),
+			SummaryState: st}:
 		default:
 		}
 	}
+}
+
+type ExchangeEventMethod string
+
+const UpdateExchangeState ExchangeEventMethod = "updateExchangeState"
+const UpdateSummaryState ExchangeEventMethod = "updateSummaryState"
+const QueryExchangeState ExchangeEventMethod = "queryExchangeState"
+
+type ExchangeEvent struct {
+	Method ExchangeEventMethod
+	T      time.Time
+
+	State        ExchangeState
+	SummaryState ExchangeSummaryState
 }
 
 // SubscribeExchangeUpdate subscribes for updates of the market.
 // Updates will be sent to dataCh.
 // To stop subscription, send to, or close 'stop'.
 func (b *Bittrex) SubscribeExchangeUpdate(
-	market string,
-	dataCh chan<- ExchangeState,
-	dataSumCh chan<- ExchangeSummaryState,
+	markets []string,
+	initialMarketState string,
+	dataCh chan<- ExchangeEvent,
 	stop <-chan bool,
 ) error {
 	const timeout = 5 * time.Second
@@ -118,10 +142,10 @@ func (b *Bittrex) SubscribeExchangeUpdate(
 		}
 		switch method {
 		case "updateExchangeState":
-			parseStates(messages, dataCh, market)
+			parseStates(messages, dataCh)
 
 		case "updateSummaryState":
-			parseSummaryState(messages, dataSumCh)
+			parseSummaryState(messages, dataCh)
 		}
 	}
 	err := doAsyncTimeout(func() error {
@@ -135,22 +159,31 @@ func (b *Bittrex) SubscribeExchangeUpdate(
 		return err
 	}
 	defer client.Close()
+
 	var msg json.RawMessage
 	err = doAsyncTimeout(func() error {
 		var err error
-		msg, err = subForMarket(client, market)
+		msg, err = subForMarket(client, markets, initialMarketState)
 		return err
 	}, nil, timeout)
 	if err != nil {
 		return err
 	}
-	var st ExchangeState
-	if err = json.Unmarshal(msg, &st); err != nil {
-		return err
+
+	if msg != nil {
+		var st ExchangeState
+		if err = json.Unmarshal(msg, &st); err != nil {
+			return err
+		}
+		st.Initial = true
+		st.MarketName = initialMarketState
+		sendStateAsync(dataCh, ExchangeEvent{
+			Method: QueryExchangeState,
+			T:      time.Now(),
+			State:  st,
+		})
 	}
-	st.Initial = true
-	st.MarketName = market
-	sendStateAsync(dataCh, st)
+
 	select {
 	case <-stop:
 	case <-client.DisconnectedChannel:

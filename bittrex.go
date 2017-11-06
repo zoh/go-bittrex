@@ -553,3 +553,27 @@ func (b *Bittrex) GetTicks(market string, interval string) ([]Candle, error) {
 
 	return candles, nil
 }
+
+func (b *Bittrex) GetBTCPrice() (res BTCPrice, err error) {
+	endpoint := fmt.Sprintf("https://bittrex.com/Api/v2.0/pub/currencies/GetBTCPrice?_=%d", rand.Int())
+
+	r, err := b.client.do("GET", endpoint, "", false)
+	if err != nil {
+		return res, fmt.Errorf("could not get market ticks: %v", err)
+	}
+
+	var response jsonResponse
+	if err := json.Unmarshal(r, &response); err != nil {
+		return res, err
+	}
+
+	if err := handleErr(response); err != nil {
+		return res, err
+	}
+
+	if err := json.Unmarshal(response.Result, &res); err != nil {
+		return res, fmt.Errorf("could not unmarshal candles: %v", err)
+	}
+
+	return res, nil
+}
