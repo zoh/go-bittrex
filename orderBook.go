@@ -9,5 +9,5 @@ type OrderBook struct {
 
 type Orderb struct {
 	Quantity decimal.Decimal `json:"Quantity"`
-	Rate     decimal.Decimal `json:"Rate"`
+	Rate     decimal.Decimal `json:"Rate,omitempty"`
 }

@@ -6,7 +6,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/thebotguys/signalr"
+	"github.com/shopspring/decimal"
+	"github.com/zoh/signalr"
 )
 
 type OrderUpdate struct {
@@ -16,6 +17,7 @@ type OrderUpdate struct {
 
 type Fill struct {
 	Orderb
+	Price     decimal.Decimal `json:",omitempty"`
 	OrderType string
 	Timestamp jTime
 }
@@ -187,6 +189,9 @@ func (b *Bittrex) SubscribeExchangeUpdate(
 	select {
 	case <-stop:
 	case <-client.DisconnectedChannel:
+		return DisconnectedChannel
 	}
 	return nil
 }
+
+var DisconnectedChannel = errors.New("Disconnect channel signalR")
