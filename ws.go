@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
-	"github.com/zoh/signalr"
+	"github.com/zoh/signalr_bittrex"
 )
 
 type OrderUpdate struct {
