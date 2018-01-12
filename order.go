@@ -11,6 +11,14 @@ type Order struct {
 	Commission        float64 `json:"Commission"`
 	Price             float64 `json:"Price"`
 	PricePerUnit      float64 `json:"PricePerUnit"`
+
+	Opened            jTime
+	Closed            jTime
+	CancelInitiated   bool
+	ImmediateOrCancel bool
+	IsConditional     bool
+	//"Condition" : null,
+	//"ConditionTarget" : null
 }
 
 // For getorder

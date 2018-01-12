@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/zoh/go-bittrex"
+	"fmt"
 )
 
 const (
@@ -13,6 +14,17 @@ func main() {
 	// Bittrex client
 	b := bittrex.New(API_KEY, API_SECRET)
 	b.SetDebug(true)
+
+	uuid, err := b.BuyLimit("USDT-BTC", 0.01, 15000)
+	if err != nil {
+		println(err)
+	}
+
+	fmt.Println(b.GetOrder(uuid))
+
+	b.CancelOrder(uuid)
+
+	fmt.Println(b.GetOrder(uuid))
 	//
 	//b.GetOrderHistory2("BTC-QTUM")
 	//

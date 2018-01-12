@@ -8,9 +8,17 @@ import (
 func TestBittrexSubscribeOrderBook(t *testing.T) {
 	bt := New("", "")
 	ch := make(chan ExchangeEvent, 16)
-	//errCh := make(chan error)
-	markets := []string{
-		"BTC-ETC",
+
+	ms, err := bt.GetMarkets()
+	if err != nil {
+		panic(err)
+	}
+
+	// first 100 markets
+	var markets []string
+	for i := 0; i < len(ms); i++ {
+		m := ms[i]
+		markets = append(markets, m.MarketName)
 	}
 
 RESTART:
@@ -24,19 +32,12 @@ RESTART:
 				fmt.Println(data.Method, data.State.MarketName, data.T)
 			}
 
-			if counter > 3 {
-				println("stop and refresh")
-				markets = []string{
-					"USDT-BTC",
-				}
-				stop <- true
-			}
 			counter++
 		}
 
 	}()
 
-	err := bt.SubscribeExchangeUpdate(markets, "", ch, stop, )
+	err = bt.SubscribeExchangeUpdate(markets, "", ch, stop, )
 	fmt.Println("err", err)
 
 	//select {

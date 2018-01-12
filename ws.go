@@ -52,6 +52,9 @@ func doAsyncTimeout(f func() error, tmFunc func(error), timeout time.Duration) e
 			}
 		}
 	}()
+	//if timeout == 0 {
+	//	timeout = time.Hour * 12
+	//}
 	select {
 	case err := <-errs:
 		return err
@@ -136,7 +139,7 @@ func (b *Bittrex) SubscribeExchangeUpdate(
 	dataCh chan<- ExchangeEvent,
 	stop <-chan bool,
 ) error {
-	const timeout = 5 * time.Second
+	const timeout = 10 * time.Minute
 	client := signalr.NewWebsocketClient()
 	client.OnClientMethod = func(hub string, method string, messages []json.RawMessage) {
 		if hub != WS_HUB {
@@ -186,8 +189,11 @@ func (b *Bittrex) SubscribeExchangeUpdate(
 		})
 	}
 
+	println("Wait!")
 	select {
 	case <-stop:
+		println("Stop!")
+		return nil
 	case <-client.DisconnectedChannel:
 		return DisconnectedChannel
 	}
