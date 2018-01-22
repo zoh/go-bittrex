@@ -3,6 +3,7 @@ package bittrex
 import (
 	"encoding/json"
 	"time"
+	"fmt"
 )
 
 const TIME_FORMAT = "2006-01-02T15:04:05"
@@ -34,5 +35,5 @@ func (jt jTime) MarshalJSON() ([]byte, error) {
 	if !jt.Valid {
 		return []byte("null"), nil
 	}
-	return jt.Time.MarshalJSON()
+	return []byte(fmt.Sprintf(`"%s"`, jt.Format(TIME_FORMAT))), nil
 }
