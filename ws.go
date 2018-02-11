@@ -141,6 +141,9 @@ func (b *Bittrex) SubscribeExchangeUpdate(
 ) error {
 	const timeout = 10 * time.Minute
 	client := signalr.NewWebsocketClient()
+	client.OnMessageError = func(err error) {
+		log.Println("SubscribeExchange Error", err)
+	}
 	client.OnClientMethod = func(hub string, method string, messages []json.RawMessage) {
 		if hub != WS_HUB {
 			return
